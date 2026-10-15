@@ -49,6 +49,41 @@ export interface HomeStats {
   todayTotal: number
 }
 
+/** 某个分类的月度汇总 */
+export interface CategoryStat {
+  categoryId: number
+  categoryName: string
+  /** 该分类当月总支出（分） */
+  total: number
+  /** 占当月总支出百分比（0-100，保留 1 位小数） */
+  percent: number
+}
+
+/** 某一天的支出汇总 */
+export interface DailyStat {
+  date: string
+  total: number
+}
+
+/** 某一月的支出汇总（用于年度对比图） */
+export interface MonthlyStat {
+  month: string
+  total: number
+}
+
+/** 统计页某个月份的完整数据 */
+export interface MonthStats {
+  month: string
+  monthTotal: number
+  monthCount: number
+  /** 上月总支出（分），用于环比 */
+  prevMonthTotal: number
+  /** 各分类汇总（按金额从大到小） */
+  categories: CategoryStat[]
+  /** 当月每一天的支出（缺失日期补 0） */
+  daily: DailyStat[]
+}
+
 /** 界面可以调用的全部数据接口（通过 window.api 访问） */
 export interface Api {
   getCategories(): Promise<Category[]>
@@ -61,4 +96,6 @@ export interface Api {
   updateExpense(id: number, input: ExpenseInput): Promise<Expense>
   deleteExpense(id: number): Promise<void>
   getHomeStats(month: string): Promise<HomeStats>
+  getMonthStats(month: string): Promise<MonthStats>
+  getYearStats(year: string): Promise<MonthlyStat[]>
 }

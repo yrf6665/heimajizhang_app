@@ -21,6 +21,10 @@
           <el-icon><List /></el-icon>
           <span>账单</span>
         </el-menu-item>
+        <el-menu-item index="/stats">
+          <el-icon><PieChart /></el-icon>
+          <span>统计</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-main class="app-main">
@@ -33,7 +37,7 @@
 // 软件的整体布局：左侧菜单栏 + 右侧内容区
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { HomeFilled, List } from '@element-plus/icons-vue'
+import { HomeFilled, List, PieChart } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)

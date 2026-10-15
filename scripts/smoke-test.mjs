@@ -52,6 +52,27 @@ assert.throws(
   '日期格式必须为 YYYY-MM-DD'
 )
 
+// 7. 月度统计（分类汇总 / 每日补齐 / 上月对比）
+db.createExpense({ amount: 3000, date: '2026-09-20', subcategoryId: lunch.id, note: '' })
+db.createExpense({ amount: 1500, date: '2026-10-05', subcategoryId: lunch.id, note: '' })
+db.createExpense({ amount: 500, date: '2026-10-06', subcategoryId: lunch.id, note: '' })
+const ms = db.getMonthStats('2026-10')
+assert.equal(ms.monthTotal, 2000, '10 月总支出应为 2000 分')
+assert.equal(ms.prevMonthTotal, 3000, '上月总支出应为 3000 分')
+assert.equal(ms.monthCount, 2)
+const foodStat = ms.categories.find((c) => c.categoryName === '餐饮')
+assert.equal(foodStat.total, 2000)
+assert.equal(foodStat.percent, 100)
+assert.equal(ms.daily.length, 31, '10 月应有 31 天')
+assert.equal(ms.daily.find((d) => d.date === '2026-10-05').total, 1500)
+assert.equal(ms.daily.find((d) => d.date === '2026-10-01').total, 0, '没花钱的日子应为 0')
+
+// 8. 年度统计（12 个月补齐）
+const ys = db.getYearStats('2026')
+assert.equal(ys.length, 12)
+assert.equal(ys.find((m) => m.month === '2026-09').total, 3000)
+assert.equal(ys.find((m) => m.month === '2026-01').total, 0)
+
 db.close()
 rmSync(dir, { recursive: true, force: true })
 console.log('✅ 数据库冒烟测试全部通过（内置分类 / 记账 / 查询 / 统计 / 编辑 / 删除 / 分类管理 / 非法输入保护）')

@@ -12,7 +12,9 @@ const api: Api = {
   createExpense: (input: ExpenseInput) => ipcRenderer.invoke('expenses:create', input),
   updateExpense: (id: number, input: ExpenseInput) => ipcRenderer.invoke('expenses:update', id, input),
   deleteExpense: (id: number) => ipcRenderer.invoke('expenses:delete', id),
-  getHomeStats: (month: string) => ipcRenderer.invoke('stats:home', month)
+  getHomeStats: (month: string) => ipcRenderer.invoke('stats:home', month),
+  getMonthStats: (month: string) => ipcRenderer.invoke('stats:month', month),
+  getYearStats: (year: string) => ipcRenderer.invoke('stats:year', year)
 }
 
 contextBridge.exposeInMainWorld('api', api)

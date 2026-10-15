@@ -16,4 +16,6 @@ export function registerIpc(db: Db): void {
   ipcMain.handle('expenses:update', (_e, id: number, input: ExpenseInput) => db.updateExpense(id, input))
   ipcMain.handle('expenses:delete', (_e, id: number) => db.deleteExpense(id))
   ipcMain.handle('stats:home', (_e, month: string) => db.getHomeStats(month))
+  ipcMain.handle('stats:month', (_e, month: string) => db.getMonthStats(month))
+  ipcMain.handle('stats:year', (_e, year: string) => db.getYearStats(year))
 }

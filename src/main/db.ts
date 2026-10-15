@@ -1,7 +1,17 @@
 // 数据库模块：负责账本数据的保存和查询（数据存在本机 SQLite 文件里）
 // 说明：使用 Node.js 自带的 SQLite 模块（node:sqlite），无需安装任何额外编译工具
 import { DatabaseSync } from 'node:sqlite'
-import type { Category, Expense, ExpenseInput, HomeStats, Subcategory } from '../shared/types'
+import type {
+  Category,
+  CategoryStat,
+  DailyStat,
+  Expense,
+  ExpenseInput,
+  HomeStats,
+  MonthStats,
+  MonthlyStat,
+  Subcategory
+} from '../shared/types'
 
 // 内置两级分类（与 CLAUDE.md 第三章保持一致）
 const BUILTIN_CATEGORIES: Record<string, string[]> = {
@@ -28,6 +38,8 @@ export interface Db {
   updateExpense(id: number, input: ExpenseInput): Expense
   deleteExpense(id: number): void
   getHomeStats(month: string): HomeStats
+  getMonthStats(month: string): MonthStats
+  getYearStats(year: string): MonthlyStat[]
   close(): void
 }
 
@@ -230,6 +242,77 @@ export function createDatabase(filePath: string): Db {
     return { monthTotal, monthCount, todayTotal }
   }
 
+  // ---- 统计 ----
+
+  function prevMonthOf(month: string): string {
+    const [y, m] = month.split('-').map(Number)
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+  }
+
+  function sumInMonth(month: string): number {
+    return (
+      db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE date LIKE ?').get(`${month}-%`) as {
+        total: number
+      }
+    ).total
+  }
+
+  function getMonthStats(month: string): MonthStats {
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('月份格式不正确')
+    const monthTotal = sumInMonth(month)
+    const monthCount = (
+      db.prepare('SELECT COUNT(*) AS n FROM expenses WHERE date LIKE ?').get(`${month}-%`) as { n: number }
+    ).n
+    const prevMonthTotal = sumInMonth(prevMonthOf(month))
+
+    // 各分类汇总（只列出有支出的分类，按金额从大到小）
+    const categories = db
+      .prepare(
+        `SELECT c.id AS categoryId, c.name AS categoryName, COALESCE(SUM(e.amount), 0) AS total
+         FROM categories c
+         LEFT JOIN subcategories s ON s.category_id = c.id
+         LEFT JOIN expenses e ON e.subcategory_id = s.id AND e.date LIKE ?
+         GROUP BY c.id, c.name
+         HAVING total > 0
+         ORDER BY total DESC`
+      )
+      .all(`${month}-%`) as unknown as CategoryStat[]
+    for (const c of categories) {
+      c.percent = monthTotal > 0 ? Math.round((c.total / monthTotal) * 1000) / 10 : 0
+    }
+
+    // 补齐当月每一天（没花钱的日子为 0）
+    const [y, m] = month.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const rows = db
+      .prepare('SELECT date, SUM(amount) AS total FROM expenses WHERE date LIKE ? GROUP BY date ORDER BY date')
+      .all(`${month}-%`) as unknown as DailyStat[]
+    const byDate = new Map(rows.map((r) => [r.date, r.total]))
+    const daily: DailyStat[] = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${month}-${String(d).padStart(2, '0')}`
+      daily.push({ date, total: byDate.get(date) ?? 0 })
+    }
+
+    return { month, monthTotal, monthCount, prevMonthTotal, categories, daily }
+  }
+
+  function getYearStats(year: string): MonthlyStat[] {
+    if (!/^\d{4}$/.test(year)) throw new Error('年份格式不正确')
+    const rows = db
+      .prepare(
+        'SELECT substr(date, 1, 7) AS month, SUM(amount) AS total FROM expenses WHERE date LIKE ? GROUP BY month ORDER BY month'
+      )
+      .all(`${year}-%`) as unknown as MonthlyStat[]
+    const byMonth = new Map(rows.map((r) => [r.month, r.total]))
+    const result: MonthlyStat[] = []
+    for (let m = 1; m <= 12; m++) {
+      const month = `${year}-${String(m).padStart(2, '0')}`
+      result.push({ month, total: byMonth.get(month) ?? 0 })
+    }
+    return result
+  }
+
   /** 首次创建数据库时写入内置分类 */
   function seed(): void {
     const row = db.prepare('SELECT COUNT(*) AS n FROM categories').get() as { n: number }
@@ -261,6 +344,8 @@ export function createDatabase(filePath: string): Db {
     updateExpense,
     deleteExpense,
     getHomeStats,
+    getMonthStats,
+    getYearStats,
     close: () => db.close()
   }
 }
