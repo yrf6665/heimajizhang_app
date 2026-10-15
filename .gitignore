@@ -1,0 +1,10 @@
+# 依赖目录（自动生成，不需要存档）
+node_modules/
+# 编译产物目录（自动生成）
+out/
+dist/
+# 测试临时文件
+scripts/.tmp/
+# 日志与系统文件
+*.log
+.DS_Store
