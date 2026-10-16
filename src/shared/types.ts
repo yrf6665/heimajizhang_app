@@ -84,6 +84,47 @@ export interface MonthStats {
   daily: DailyStat[]
 }
 
+/** 账单查询筛选条件（全部可选，可组合使用） */
+export interface ExpenseFilters {
+  /** 按月份（YYYY-MM），与起止日期二选一 */
+  month?: string
+  /** 起始日期（含，YYYY-MM-DD） */
+  dateFrom?: string
+  /** 结束日期（含，YYYY-MM-DD） */
+  dateTo?: string
+  /** 关键词：匹配备注、小类名、大类名 */
+  keyword?: string
+  /** 按一级大类筛选 */
+  categoryId?: number
+}
+
+/** 预算（总预算或分类预算） */
+export interface Budget {
+  id: number
+  month: string
+  /** null 表示总预算 */
+  categoryId: number | null
+  /** null 表示总预算 */
+  categoryName: string | null
+  /** 预算金额（分） */
+  amount: number
+}
+
+/** 设置预算时提交的数据 */
+export interface BudgetInput {
+  month: string
+  categoryId: number | null
+  amount: number
+}
+
+/** 导出 Excel 的结果 */
+export interface ExportResult {
+  /** 用户是否取消了保存 */
+  canceled: boolean
+  /** 保存成功时的文件路径 */
+  path?: string
+}
+
 /** 界面可以调用的全部数据接口（通过 window.api 访问） */
 export interface Api {
   getCategories(): Promise<Category[]>
@@ -91,11 +132,15 @@ export interface Api {
   deleteCategory(id: number): Promise<void>
   addSubcategory(categoryId: number, name: string): Promise<Subcategory>
   deleteSubcategory(id: number): Promise<void>
-  listExpenses(month: string): Promise<Expense[]>
+  listExpenses(filters: ExpenseFilters): Promise<Expense[]>
   createExpense(input: ExpenseInput): Promise<Expense>
   updateExpense(id: number, input: ExpenseInput): Promise<Expense>
   deleteExpense(id: number): Promise<void>
   getHomeStats(month: string): Promise<HomeStats>
   getMonthStats(month: string): Promise<MonthStats>
   getYearStats(year: string): Promise<MonthlyStat[]>
+  getBudgets(month: string): Promise<Budget[]>
+  setBudget(input: BudgetInput): Promise<Budget>
+  deleteBudget(id: number): Promise<void>
+  exportExcel(expenses: Expense[], fileName: string): Promise<ExportResult>
 }

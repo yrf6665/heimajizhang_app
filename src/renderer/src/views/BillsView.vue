@@ -3,14 +3,6 @@
     <div class="page-header">
       <h2>账单</h2>
       <div class="header-actions">
-        <el-date-picker
-          v-model="month"
-          type="month"
-          :clearable="false"
-          format="YYYY年MM月"
-          value-format="YYYY-MM"
-          @change="load"
-        />
         <el-button @click="manageVisible = true">分类管理</el-button>
         <el-button type="primary" @click="openCreate">
           <el-icon><Plus /></el-icon>&nbsp;记一笔
@@ -18,11 +10,47 @@
       </div>
     </div>
 
-    <div class="summary-bar">
-      {{ month }} 共 {{ monthCount }} 笔 · 合计 <b>{{ formatMoney(monthTotal) }}</b>
+    <!-- 筛选栏：月份 / 起止日期 / 大类 / 关键词，可组合使用 -->
+    <div class="filter-bar">
+      <el-date-picker
+        v-model="month"
+        type="month"
+        :clearable="false"
+        format="YYYY年MM月"
+        value-format="YYYY-MM"
+        placeholder="选择月份"
+        @change="onMonthChange"
+      />
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        @change="onRangeChange"
+      />
+      <el-select v-model="filterCategoryId" placeholder="全部分类" clearable style="width: 130px" @change="load">
+        <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+      </el-select>
+      <el-input
+        v-model="keyword"
+        placeholder="搜索备注或分类"
+        clearable
+        style="width: 190px"
+        :prefix-icon="Search"
+        @input="load"
+      />
+      <el-button @click="reset">重置</el-button>
+      <div class="filter-spacer"></div>
+      <el-button type="success" :icon="Download" @click="exportExcel">导出Excel</el-button>
     </div>
 
-    <el-table :data="expenses" stripe empty-text="这个月还没有账单，点右上角「记一笔」吧">
+    <div class="summary-bar">
+      {{ summaryText }} 共 {{ monthCount }} 笔 · 合计 <b>{{ formatMoney(monthTotal) }}</b>
+    </div>
+
+    <el-table :data="expenses" stripe empty-text="没有符合条件的账单">
       <el-table-column prop="date" label="日期" width="120" />
       <el-table-column label="分类" min-width="170">
         <template #default="{ row }">{{ row.categoryName }} / {{ row.subcategoryName }}</template>
@@ -47,11 +75,11 @@
 </template>
 
 <script setup lang="ts">
-// 账单页：按月浏览所有账单，支持编辑、删除、分类管理
+// 账单页：按月/日期范围/分类/关键词浏览账单，支持编辑、删除、分类管理、导出 Excel
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import type { Category, Expense } from '../../../shared/types'
+import { Download, Plus, Search } from '@element-plus/icons-vue'
+import type { Category, Expense, ExpenseFilters } from '../../../shared/types'
 import { formatMoney } from '../utils/money'
 import { currentMonth } from '../utils/date'
 import { errorMessage } from '../utils/errors'
@@ -59,6 +87,9 @@ import ExpenseDialog from '../components/ExpenseDialog.vue'
 import CategoryManageDialog from '../components/CategoryManageDialog.vue'
 
 const month = ref(currentMonth())
+const dateRange = ref<[string, string] | null>(null)
+const filterCategoryId = ref<number | null>(null)
+const keyword = ref('')
 const expenses = ref<Expense[]>([])
 const categories = ref<Category[]>([])
 const dialogVisible = ref(false)
@@ -68,12 +99,48 @@ const editing = ref<Expense | null>(null)
 const monthTotal = computed(() => expenses.value.reduce((sum, e) => sum + e.amount, 0))
 const monthCount = computed(() => expenses.value.length)
 
+const summaryText = computed(() => {
+  if (dateRange.value) return `${dateRange.value[0]} ~ ${dateRange.value[1]}`
+  if (month.value) return month.value
+  return '全部'
+})
+
 async function load(): Promise<void> {
-  expenses.value = await window.api.listExpenses(month.value)
+  const filters: ExpenseFilters = {}
+  if (dateRange.value) {
+    filters.dateFrom = dateRange.value[0]
+    filters.dateTo = dateRange.value[1]
+  } else if (month.value) {
+    filters.month = month.value
+  }
+  if (filterCategoryId.value) filters.categoryId = filterCategoryId.value
+  const kw = keyword.value.trim()
+  if (kw) filters.keyword = kw
+  expenses.value = await window.api.listExpenses(filters)
 }
 
 async function loadCategories(): Promise<void> {
   categories.value = await window.api.getCategories()
+}
+
+/** 选了月份就清掉日期范围（两个日期条件二选一） */
+function onMonthChange(): void {
+  dateRange.value = null
+  load()
+}
+
+/** 选了日期范围就清掉月份 */
+function onRangeChange(): void {
+  month.value = ''
+  load()
+}
+
+function reset(): void {
+  month.value = currentMonth()
+  dateRange.value = null
+  filterCategoryId.value = null
+  keyword.value = ''
+  load()
 }
 
 function openCreate(): void {
@@ -105,6 +172,23 @@ async function remove(row: Expense): Promise<void> {
   }
 }
 
+/** 把当前筛选看到的账单导出成 Excel 文件 */
+async function exportExcel(): Promise<void> {
+  if (expenses.value.length === 0) {
+    ElMessage.warning('当前没有可导出的账单')
+    return
+  }
+  const name = dateRange.value
+    ? `黑马记账账单_${dateRange.value[0]}_${dateRange.value[1]}`
+    : `黑马记账账单_${month.value || '全部'}`
+  try {
+    const res = await window.api.exportExcel(expenses.value, name)
+    if (!res.canceled) ElMessage.success(`已导出：${res.path}`)
+  } catch (err) {
+    ElMessage.error(errorMessage(err))
+  }
+}
+
 onMounted(() => {
   load()
   loadCategories()
@@ -116,7 +200,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .page-header h2 {
@@ -127,6 +211,17 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.filter-spacer {
+  flex: 1;
 }
 
 .summary-bar {

@@ -2,10 +2,13 @@
 // 说明：使用 Node.js 自带的 SQLite 模块（node:sqlite），无需安装任何额外编译工具
 import { DatabaseSync } from 'node:sqlite'
 import type {
+  Budget,
+  BudgetInput,
   Category,
   CategoryStat,
   DailyStat,
   Expense,
+  ExpenseFilters,
   ExpenseInput,
   HomeStats,
   MonthStats,
@@ -33,14 +36,24 @@ export interface Db {
   deleteCategory(id: number): void
   addSubcategory(categoryId: number, name: string): Subcategory
   deleteSubcategory(id: number): void
-  listExpenses(month: string): Expense[]
+  listExpenses(filters: ExpenseFilters): Expense[]
   createExpense(input: ExpenseInput): Expense
   updateExpense(id: number, input: ExpenseInput): Expense
   deleteExpense(id: number): void
   getHomeStats(month: string): HomeStats
   getMonthStats(month: string): MonthStats
   getYearStats(year: string): MonthlyStat[]
+  getBudgets(month: string): Budget[]
+  setBudget(input: BudgetInput): Budget
+  deleteBudget(id: number): void
   close(): void
+}
+
+/** 校验月份格式且必须是真实存在的月份（1~12 月） */
+function isValidMonth(month: string): boolean {
+  if (!/^\d{4}-\d{2}$/.test(month)) return false
+  const m = Number(month.slice(5))
+  return m >= 1 && m <= 12
 }
 
 /** 取本地时区的日期字符串 YYYY-MM-DD（不用 UTC，避免日期差一天） */
@@ -78,6 +91,12 @@ export function createDatabase(filePath: string): Db {
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS budgets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      month TEXT NOT NULL,
+      category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL CHECK (amount > 0)
     );
   `)
   seed()
@@ -181,8 +200,34 @@ export function createDatabase(filePath: string): Db {
       .get(id) as Expense | undefined
   }
 
-  function listExpenses(month: string): Expense[] {
-    if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('月份格式不正确')
+  function listExpenses(filters: ExpenseFilters): Expense[] {
+    const where: string[] = []
+    const params: (string | number)[] = []
+    if (filters.month) {
+      if (!/^\d{4}-\d{2}$/.test(filters.month)) throw new Error('月份格式不正确')
+      where.push('e.date LIKE ?')
+      params.push(`${filters.month}-%`)
+    }
+    if (filters.dateFrom) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(filters.dateFrom)) throw new Error('起始日期格式不正确')
+      where.push('e.date >= ?')
+      params.push(filters.dateFrom)
+    }
+    if (filters.dateTo) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(filters.dateTo)) throw new Error('结束日期格式不正确')
+      where.push('e.date <= ?')
+      params.push(filters.dateTo)
+    }
+    if (filters.categoryId) {
+      where.push('s.category_id = ?')
+      params.push(filters.categoryId)
+    }
+    if (filters.keyword && filters.keyword.trim()) {
+      where.push('(e.note LIKE ? OR s.name LIKE ? OR c.name LIKE ?)')
+      const kw = `%${filters.keyword.trim()}%`
+      params.push(kw, kw, kw)
+    }
+    const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
     return db
       .prepare(
         `SELECT e.id, e.amount, e.date,
@@ -192,10 +237,10 @@ export function createDatabase(filePath: string): Db {
          FROM expenses e
          JOIN subcategories s ON s.id = e.subcategory_id
          JOIN categories c ON c.id = s.category_id
-         WHERE e.date LIKE ?
+         ${whereSql}
          ORDER BY e.date DESC, e.id DESC`
       )
-      .all(`${month}-%`) as unknown as Expense[]
+      .all(...params) as unknown as Expense[]
   }
 
   function createExpense(input: ExpenseInput): Expense {
@@ -225,7 +270,7 @@ export function createDatabase(filePath: string): Db {
   // ---- 首页统计 ----
 
   function getHomeStats(month: string): HomeStats {
-    if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('月份格式不正确')
+    if (!isValidMonth(month)) throw new Error('月份格式不正确')
     const monthTotal = (
       db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE date LIKE ?').get(`${month}-%`) as {
         total: number
@@ -258,7 +303,7 @@ export function createDatabase(filePath: string): Db {
   }
 
   function getMonthStats(month: string): MonthStats {
-    if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('月份格式不正确')
+    if (!isValidMonth(month)) throw new Error('月份格式不正确')
     const monthTotal = sumInMonth(month)
     const monthCount = (
       db.prepare('SELECT COUNT(*) AS n FROM expenses WHERE date LIKE ?').get(`${month}-%`) as { n: number }
@@ -313,6 +358,76 @@ export function createDatabase(filePath: string): Db {
     return result
   }
 
+  // ---- 预算 ----
+
+  function getBudgets(month: string): Budget[] {
+    if (!isValidMonth(month)) throw new Error('月份格式不正确')
+    return db
+      .prepare(
+        `SELECT b.id, b.month, b.category_id AS categoryId, c.name AS categoryName, b.amount
+         FROM budgets b
+         LEFT JOIN categories c ON c.id = b.category_id
+         WHERE b.month = ?
+         ORDER BY (b.category_id IS NULL) DESC, c.sort, c.id`
+      )
+      .all(month) as unknown as Budget[]
+  }
+
+  function setBudget(input: BudgetInput): Budget {
+    if (!isValidMonth(input.month)) throw new Error('月份格式不正确')
+    if (!Number.isInteger(input.amount) || input.amount <= 0) throw new Error('预算金额必须大于 0')
+    if (input.categoryId !== null && !db.prepare('SELECT id FROM categories WHERE id = ?').get(input.categoryId))
+      throw new Error('分类不存在')
+
+    // 同一个"月份+分类"只保留一条预算：已存在就更新，不存在就新建
+    let existing: { id: number } | undefined
+    if (input.categoryId === null) {
+      existing = db.prepare('SELECT id FROM budgets WHERE month = ? AND category_id IS NULL').get(input.month) as
+        | { id: number }
+        | undefined
+    } else {
+      existing = db
+        .prepare('SELECT id FROM budgets WHERE month = ? AND category_id = ?')
+        .get(input.month, input.categoryId) as { id: number } | undefined
+    }
+    if (existing) {
+      db.prepare('UPDATE budgets SET amount = ? WHERE id = ?').run(input.amount, existing.id)
+    } else {
+      db.prepare('INSERT INTO budgets (month, category_id, amount) VALUES (?, ?, ?)').run(
+        input.month,
+        input.categoryId,
+        input.amount
+      )
+    }
+
+    const row =
+      input.categoryId === null
+        ? (db.prepare('SELECT id, month, category_id AS categoryId, amount FROM budgets WHERE month = ? AND category_id IS NULL').get(input.month) as unknown as {
+            id: number
+            month: string
+            categoryId: number | null
+            amount: number
+          })
+        : (db
+            .prepare('SELECT id, month, category_id AS categoryId, amount FROM budgets WHERE month = ? AND category_id = ?')
+            .get(input.month, input.categoryId) as unknown as {
+            id: number
+            month: string
+            categoryId: number | null
+            amount: number
+          })
+    const categoryName =
+      row.categoryId === null
+        ? null
+        : (db.prepare('SELECT name FROM categories WHERE id = ?').get(row.categoryId) as { name: string }).name
+    return { id: row.id, month: row.month, categoryId: row.categoryId, categoryName, amount: row.amount }
+  }
+
+  function deleteBudget(id: number): void {
+    const info = db.prepare('DELETE FROM budgets WHERE id = ?').run(id)
+    if (info.changes === 0) throw new Error('预算不存在')
+  }
+
   /** 首次创建数据库时写入内置分类 */
   function seed(): void {
     const row = db.prepare('SELECT COUNT(*) AS n FROM categories').get() as { n: number }
@@ -346,6 +461,9 @@ export function createDatabase(filePath: string): Db {
     getHomeStats,
     getMonthStats,
     getYearStats,
+    getBudgets,
+    setBudget,
+    deleteBudget,
     close: () => db.close()
   }
 }

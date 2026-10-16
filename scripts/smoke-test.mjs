@@ -20,7 +20,7 @@ const e = db.createExpense({ amount: 1580, date: '2026-10-15', subcategoryId: lu
 assert.equal(e.amount, 1580)
 assert.equal(e.categoryName, '餐饮')
 assert.equal(e.subcategoryName, '午餐')
-assert.equal(db.listExpenses('2026-10').length, 1, '10 月应有 1 笔账单')
+assert.equal(db.listExpenses({ month: '2026-10' }).length, 1, '10 月应有 1 笔账单')
 
 // 3. 首页统计
 const stats = db.getHomeStats('2026-10')
@@ -31,7 +31,7 @@ assert.equal(stats.monthCount, 1)
 const u = db.updateExpense(e.id, { amount: 2000, date: '2026-10-15', subcategoryId: lunch.id, note: '改' })
 assert.equal(u.amount, 2000, '编辑后金额应为 2000')
 db.deleteExpense(e.id)
-assert.equal(db.listExpenses('2026-10').length, 0, '删除后应为 0 笔')
+assert.equal(db.listExpenses({ month: '2026-10' }).length, 0, '删除后应为 0 笔')
 
 // 5. 分类增删与内置保护
 assert.throws(() => db.deleteCategory(food.id), /内置分类/, '内置大类不可删除')
@@ -72,6 +72,29 @@ const ys = db.getYearStats('2026')
 assert.equal(ys.length, 12)
 assert.equal(ys.find((m) => m.month === '2026-09').total, 3000)
 assert.equal(ys.find((m) => m.month === '2026-01').total, 0)
+
+// 9. 搜索与筛选
+const traffic = cats.find((c) => c.name === '交通')
+const bus = traffic.subcategories.find((s) => s.name === '公交地铁')
+db.createExpense({ amount: 800, date: '2026-10-10', subcategoryId: lunch.id, note: '和同事聚餐' })
+db.createExpense({ amount: 200, date: '2026-10-12', subcategoryId: bus.id, note: '' })
+assert.equal(db.listExpenses({ month: '2026-10', keyword: '聚餐' }).length, 1, '关键词应只匹配到聚餐那笔')
+assert.equal(db.listExpenses({ month: '2026-10', keyword: '餐饮' }).length, 3, '关键词匹配大类名')
+assert.equal(db.listExpenses({ month: '2026-10', categoryId: traffic.id }).length, 1, '按大类筛选')
+assert.equal(db.listExpenses({ dateFrom: '2026-10-10', dateTo: '2026-10-31' }).length, 2, '按日期范围筛选')
+assert.equal(db.listExpenses({ month: '2026-09' }).length, 1, '9 月应有 1 笔')
+
+// 10. 预算
+db.setBudget({ month: '2026-10', categoryId: null, amount: 10000 })
+db.setBudget({ month: '2026-10', categoryId: null, amount: 20000 })
+assert.equal(db.getBudgets('2026-10').find((b) => b.categoryId === null).amount, 20000, '重复设置应更新金额')
+const catBudget = db.setBudget({ month: '2026-10', categoryId: food.id, amount: 5000 })
+assert.equal(catBudget.categoryName, '餐饮')
+assert.equal(db.getBudgets('2026-10').length, 2, '总预算 + 分类预算共 2 条')
+db.deleteBudget(catBudget.id)
+assert.equal(db.getBudgets('2026-10').length, 1)
+assert.throws(() => db.setBudget({ month: '2026-13', categoryId: null, amount: 100 }), /月份/, '非法月份')
+assert.throws(() => db.setBudget({ month: '2026-10', categoryId: null, amount: -1 }), /金额/, '预算必须大于 0')
 
 db.close()
 rmSync(dir, { recursive: true, force: true })
