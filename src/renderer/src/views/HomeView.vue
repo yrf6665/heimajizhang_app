@@ -55,7 +55,7 @@
     <div class="recent-card">
       <div class="recent-header">
         <span>最近账单</span>
-        <el-link type="primary" :underline="false" @click="router.push('/bills')">查看全部</el-link>
+        <el-link type="primary" underline="never" @click="router.push('/bills')">查看全部</el-link>
       </div>
       <el-empty
         v-if="recent.length === 0"

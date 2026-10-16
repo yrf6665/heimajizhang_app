@@ -12,6 +12,8 @@ function createWindow(): void {
     minHeight: 600,
     title: '黑马记账',
     autoHideMenuBar: true,
+    // 窗口和任务栏图标（开发时用项目里的图标，打包后用安装包自带的图标）
+    icon: app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

@@ -1,0 +1,33 @@
+# 打包配置：把软件封装成 Windows / Mac 安装包
+appId: com.heima.jizhang
+productName: 黑马记账
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+win:
+  target:
+    - nsis
+    - zip
+  icon: build/icon.png
+nsis:
+  # 安装向导模式（非一键安装），用户可选安装位置
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  shortcutName: 黑马记账
+  installerLanguages:
+    - zh_CN
+mac:
+  target:
+    - dmg
+  icon: build/icon.png
+  category: public.app-category.finance
+  identity: null
+# 项目没有需要编译的原生模块，跳过重编译（更快且不需要装编译工具）
+npmRebuild: false
