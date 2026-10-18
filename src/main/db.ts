@@ -34,8 +34,10 @@ export interface Db {
   listCategories(): Category[]
   addCategory(name: string): Category
   deleteCategory(id: number): void
+  renameCategory(id: number, name: string): void
   addSubcategory(categoryId: number, name: string): Subcategory
   deleteSubcategory(id: number): void
+  renameSubcategory(id: number, name: string): void
   listExpenses(filters: ExpenseFilters): Expense[]
   createExpense(input: ExpenseInput): Expense
   updateExpense(id: number, input: ExpenseInput): Expense
@@ -148,6 +150,19 @@ export function createDatabase(filePath: string): Db {
     db.prepare('DELETE FROM categories WHERE id = ?').run(id)
   }
 
+  function renameCategory(id: number, name: string): void {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error('分类名称不能为空')
+    const cat = db.prepare('SELECT is_system FROM categories WHERE id = ?').get(id) as
+      | { is_system: number }
+      | undefined
+    if (!cat) throw new Error('分类不存在')
+    if (cat.is_system === 1) throw new Error('内置分类不能改名')
+    if (db.prepare('SELECT id FROM categories WHERE name = ? AND id != ?').get(trimmed, id))
+      throw new Error('该大类已存在')
+    db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(trimmed, id)
+  }
+
   function addSubcategory(categoryId: number, name: string): Subcategory {
     const trimmed = name.trim()
     if (!trimmed) throw new Error('小类名称不能为空')
@@ -174,6 +189,23 @@ export function createDatabase(filePath: string): Db {
     const used = db.prepare('SELECT COUNT(*) AS n FROM expenses WHERE subcategory_id = ?').get(id) as { n: number }
     if (used.n > 0) throw new Error('该小类下已有账单，不能删除')
     db.prepare('DELETE FROM subcategories WHERE id = ?').run(id)
+  }
+
+  function renameSubcategory(id: number, name: string): void {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error('小类名称不能为空')
+    const sub = db.prepare('SELECT is_system, category_id FROM subcategories WHERE id = ?').get(id) as
+      | { is_system: number; category_id: number }
+      | undefined
+    if (!sub) throw new Error('小类不存在')
+    if (sub.is_system === 1) throw new Error('内置小类不能改名')
+    if (
+      db
+        .prepare('SELECT id FROM subcategories WHERE category_id = ? AND name = ? AND id != ?')
+        .get(sub.category_id, trimmed, id)
+    )
+      throw new Error('该小类已存在')
+    db.prepare('UPDATE subcategories SET name = ? WHERE id = ?').run(trimmed, id)
   }
 
   // ---- 账单 ----
@@ -452,8 +484,10 @@ export function createDatabase(filePath: string): Db {
     listCategories,
     addCategory,
     deleteCategory,
+    renameCategory,
     addSubcategory,
     deleteSubcategory,
+    renameSubcategory,
     listExpenses,
     createExpense,
     updateExpense,

@@ -10,10 +10,12 @@ export function registerIpc(db: Db): void {
   ipcMain.handle('categories:list', () => db.listCategories())
   ipcMain.handle('categories:add', (_e, name: string) => db.addCategory(name))
   ipcMain.handle('categories:remove', (_e, id: number) => db.deleteCategory(id))
+  ipcMain.handle('categories:rename', (_e, id: number, name: string) => db.renameCategory(id, name))
   ipcMain.handle('subcategories:add', (_e, categoryId: number, name: string) =>
     db.addSubcategory(categoryId, name)
   )
   ipcMain.handle('subcategories:remove', (_e, id: number) => db.deleteSubcategory(id))
+  ipcMain.handle('subcategories:rename', (_e, id: number, name: string) => db.renameSubcategory(id, name))
   ipcMain.handle('expenses:list', (_e, filters: ExpenseFilters) => db.listExpenses(filters))
   ipcMain.handle('expenses:create', (_e, input: ExpenseInput) => {
     const expense = db.createExpense(input)

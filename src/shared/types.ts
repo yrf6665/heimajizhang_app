@@ -130,8 +130,10 @@ export interface Api {
   getCategories(): Promise<Category[]>
   addCategory(name: string): Promise<Category>
   deleteCategory(id: number): Promise<void>
+  renameCategory(id: number, name: string): Promise<void>
   addSubcategory(categoryId: number, name: string): Promise<Subcategory>
   deleteSubcategory(id: number): Promise<void>
+  renameSubcategory(id: number, name: string): Promise<void>
   listExpenses(filters: ExpenseFilters): Promise<Expense[]>
   createExpense(input: ExpenseInput): Promise<Expense>
   updateExpense(id: number, input: ExpenseInput): Promise<Expense>
