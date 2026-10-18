@@ -25,6 +25,10 @@
           <el-icon><PieChart /></el-icon>
           <span>统计</span>
         </el-menu-item>
+        <el-menu-item index="/game/snake">
+          <span class="menu-emoji">🐍</span>
+          <span>贪吃蛇</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-main class="app-main">
@@ -71,6 +75,16 @@ const activeMenu = computed(() => route.path)
 .side-menu {
   border-right: none;
   flex: 1;
+}
+
+/* 贪吃蛇菜单项的小图标：表情符号，尺寸和旁边的 Element Plus 图标对齐 */
+.menu-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  margin-right: 8px;
+  font-size: 18px;
 }
 
 .app-main {
