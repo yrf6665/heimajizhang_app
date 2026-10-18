@@ -179,8 +179,8 @@ async function exportExcel(): Promise<void> {
     return
   }
   const name = dateRange.value
-    ? `黑马记账账单_${dateRange.value[0]}_${dateRange.value[1]}`
-    : `黑马记账账单_${month.value || '全部'}`
+    ? `记账App账单_${dateRange.value[0]}_${dateRange.value[1]}`
+    : `记账App账单_${month.value || '全部'}`
   try {
     const res = await window.api.exportExcel(expenses.value, name)
     if (!res.canceled) ElMessage.success(`已导出：${res.path}`)

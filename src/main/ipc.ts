@@ -74,7 +74,7 @@ function checkBudgetAlerts(db: Db, input: ExpenseInput): void {
   }
 
   if (messages.length > 0 && Notification.isSupported()) {
-    new Notification({ title: '黑马记账 · 预算提醒', body: messages.join('\n') }).show()
+    new Notification({ title: '记账App · 预算提醒', body: messages.join('\n') }).show()
   }
 }
 

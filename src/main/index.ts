@@ -10,7 +10,7 @@ function createWindow(): void {
     height: 720,
     minWidth: 880,
     minHeight: 600,
-    title: '黑马记账',
+    title: '记账App',
     autoHideMenuBar: true,
     // 窗口和任务栏图标（开发时用项目里的图标，打包后用安装包自带的图标）
     icon: app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(__dirname, '../../build/icon.png'),
