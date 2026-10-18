@@ -1,8 +1,8 @@
 {
   "name": "heima-jizhang",
-  "productName": "记账App",
+  "productName": "黑马记账",
   "version": "0.1.0",
-  "description": "记账App - 记录每一笔花销的个人记账桌面软件",
+  "description": "黑马记账 - 记录每一笔花销的个人记账桌面软件",
   "main": "out/main/index.js",
   "private": true,
   "scripts": {

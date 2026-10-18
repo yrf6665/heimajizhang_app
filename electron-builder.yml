@@ -1,6 +1,6 @@
 # 打包配置：把软件封装成 Windows / Mac 安装包
 appId: com.heima.jizhang
-productName: 记账App
+productName: 黑马记账
 directories:
   buildResources: build
   output: dist
@@ -20,7 +20,7 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
-  shortcutName: 记账App
+  shortcutName: 黑马记账
   installerLanguages:
     - zh_CN
 mac:

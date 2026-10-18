@@ -2,8 +2,8 @@
   <el-container class="app-layout">
     <el-aside width="200px" class="app-sidebar">
       <div class="logo">
-        <div class="logo-icon">📒</div>
-        <span>记账App</span>
+        <div class="logo-icon">🐴</div>
+        <span>黑马记账</span>
       </div>
       <el-menu
         :default-active="activeMenu"
