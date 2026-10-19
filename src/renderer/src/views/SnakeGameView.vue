@@ -134,12 +134,8 @@ function turn(d: Dir): void {
   if (status.value !== 'running') return
   const last = dirQueue.length > 0 ? dirQueue[dirQueue.length - 1] : dir
   if (opposite(last, d)) return
-  if (dirQueue.length < 2) {
-    dirQueue.push(d)
-  } else {
-    dirQueue.shift()
-    dirQueue.push(d)
-  }
+  // 队列已满时直接忽略新按键：挤掉旧按键会让"掉头保护"失效，蛇会掉头撞死自己
+  if (dirQueue.length < 2) dirQueue.push(d)
 }
 
 /** 每一格时间到：蛇往前走一步 */
@@ -162,6 +158,12 @@ function tick(): void {
   snake.unshift(next)
   if (eats) {
     score.value += 1
+    // 分数一超过最高分就立刻保存：中途退出或关窗口也不会丢纪录
+    if (score.value > highScore.value) {
+      highScore.value = score.value
+      newRecord.value = true
+      localStorage.setItem('snake-high-score', String(score.value))
+    }
     if (score.value % 5 === 0) restartTimer() // 每吃 5 个提速一档
     spawnFood()
   } else {
@@ -173,11 +175,7 @@ function tick(): void {
 function gameOver(): void {
   status.value = 'over'
   stopTimer()
-  if (score.value > highScore.value) {
-    highScore.value = score.value
-    newRecord.value = true
-    localStorage.setItem('snake-high-score', String(highScore.value))
-  }
+  // 最高分已在游戏过程中实时保存（见 tick），这里不用再写
   draw()
 }
 
