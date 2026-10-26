@@ -1,0 +1,6 @@
+# 换行符规则（大白话：不同系统"换行"的暗号不一样，这里统一规定）
+#
+# git 钩子必须用 LF 换行（Unix 风格）。本机 git 开着 core.autocrlf=true，
+# 会把文本文件转成 CRLF（Windows 风格），那样钩子就执行不了，会报
+# "bad interpreter"。所以要专门给钩子目录锁死 LF。
+scripts/git-hooks/* text eol=lf

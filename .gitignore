@@ -5,6 +5,8 @@ out/
 dist/
 # 测试临时文件
 scripts/.tmp/
+# 质量门禁的检查结论与指纹（本机自动生成，不进版本库）
+.quality/
 # 日志与系统文件
 *.log
 .DS_Store
