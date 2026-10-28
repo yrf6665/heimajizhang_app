@@ -175,6 +175,7 @@ Electron = 用"做网页"的方式做桌面软件（软件内部自带一个精�
 | 2026-10-27 | 门禁的安全判定只拦"代码级"高危；第三方依赖包漏洞只记录、不拦 | 用户拍板 | 依赖漏洞不是本次改动引入的；若一并拦下，在升级 electron/xlsx 之前任何提交都过不去，门禁会把项目锁死 |
 | 2026-10-27 | 每份检查结论在登记时就记下代码指纹，封存时逐份核对 | Claude 决定（修补漏洞） | 原设计在"检查完、封存前"存在空档，期间改动文件会把旧结论套到新代码上 |
 | 2026-10-27 | 安装脚本自动把钩子登记为可执行（100755），并复核 | Claude 决定（修补漏洞） | 否则把项目拷到 Mac/Linux 后 git 会忽略钩子，门禁静默失效，而项目宣称支持 Mac |
+| 2026-10-28 | 云端主仓库从 Gitee 换成 GitHub（yrf6665/heimajizhang_app，公开仓库），Gitee 保留为备用远程 `gitee` 但不再推送 | 用户拍板 | 用户要求把项目存到 GitHub：选"只用 GitHub 不用 Gitee"、仓库"公开"；Gitee 远程保留只是留个后路，不增加维护成本 |
 
 ---
 
@@ -230,10 +231,14 @@ Electron = 用"做网页"的方式做桌面软件（软件内部自带一个精�
 
 | 事项 | 内容 |
 |---|---|
-| 云端仓库 | https://gitee.com/yue-ruifeng2007/black-horse-accounting-app.git（**私有仓库**，仅本人账号可见；不含任何账本数据） |
-| 同步方式 | **是否存档、是否推送，由用户明确要求后才执行**（2026-10-19 用户明确指示：Claude 不要自动推送；需要时用户会说，或输入 `/git-save`） |
-| 换电脑恢复 | 新电脑装好 git 后，运行 `git clone https://gitee.com/yue-ruifeng2007/black-horse-accounting-app.git`，即可得到完整代码和全部历史存档 |
+| 主仓库（2026-10-28 起） | https://github.com/yrf6665/heimajizhang_app （远程名 `origin`，**公开仓库**） |
+| 备用仓库（保留但不再推） | https://gitee.com/yue-ruifeng2007/black-horse-accounting-app.git （远程名 `gitee`，私有仓库；需要时可 `git push gitee main`） |
+| 仓库内容 | **只有代码，不含任何账本数据、密码或密钥**；提交记录里的作者是 `y'r'f`、邮箱是占位邮箱 `user@local` |
+| 同步方式 | **是否存档、是否推送，由用户明确要求后才执行**（2026-10-19 用户明确指示：Claude 不要自动推送；需要时用户会说，或输入 `/git-commit`） |
+| 换电脑恢复 | 新电脑装好 git 后：① 生成 SSH 密钥并把公钥加到 GitHub；② 运行 `git clone git@github.com:yrf6665/heimajizhang_app.git`；③ 进入目录跑 `npm install` 和 `npm run gate:setup` |
 | 账本数据 | 不在代码仓库里（在 AppData 目录，见第九章），建议定期手动复制 `heima-jizhang` 文件夹到 U 盘/网盘备份 |
+
+> 注意：GitHub 仓库是**公开**的，任何人都能看到全部代码和历史记录。若以后不想公开，可在 GitHub 仓库 Settings 底部改成 Private，无需改代码。
 
 ---
 
@@ -259,7 +264,7 @@ Electron = 用"做网页"的方式做桌面软件（软件内部自带一个精�
 
 | 事项 | 内容 |
 |---|---|
-| 日常提交 | 输入 `/git-commit`：并行跑单元测试和质量检查 → 都通过才提交 → 提交后问你要不要推 Gitee |
+| 日常提交 | 输入 `/git-commit`：并行跑单元测试和质量检查 → 都通过才提交 → 提交后问你要不要推到 GitHub（`origin`） |
 | 首次安装 | `npm run gate:setup`（每条电脑一次；换电脑后重装时再跑一次） |
 | 查看状态 | `npm run gate:status` |
 | 清空记录 | `node scripts/quality-gate.cjs reset` |
